@@ -50,7 +50,8 @@ Keep the four dedicated storage NICs separate in Route A. TrueNAS recommends mul
 
 This is a storage-only view of a critical Linux server. Ethernet ToR switches, application bonds, client networks and management networks are omitted so they cannot be confused with FC switches.
 
-![Production FC reference: two dual-port HBA cards, two independent fabrics, four FC switches and dual-controller SAN](images/production-fc-four-port-san.jpg)
+<img width="3000" height="2600" alt="NetApp-FC-SAN-Physical-Cabling" src="https://github.com/user-attachments/assets/e93e36fc-c764-44a5-b2e7-6d0f8c470d1b" />
+
 
 ### 2.1 Physical inventory
 
