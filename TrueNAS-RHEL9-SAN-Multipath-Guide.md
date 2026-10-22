@@ -150,7 +150,8 @@ These are topology counts, not promises of zero interruption. ALUA state, contro
 
 Run both VMs on the same VMware Workstation host or on the same VirtualBox host for this procedure. The four virtual storage networks are local to that hypervisor.
 
-![Free TrueNAS and RHEL VM lab with four independent iSCSI paths to one LUN](images/truenas-rhel-four-path-lab.jpg)
+<img width="2200" height="1370" alt="image" src="https://github.com/user-attachments/assets/848c2ec3-9d78-41d3-8554-de1ac5f5dadc" />
+
 
 ```mermaid
 flowchart TB
