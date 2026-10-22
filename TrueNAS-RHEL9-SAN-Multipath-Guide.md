@@ -173,7 +173,8 @@ These are topology counts, not promises of zero interruption. ALUA state, contro
 
 Run `TrueNAS-SAN` and `RHEL-SAN01` on **one VMware Workstation host**. Adapter 1 of each VM uses **Custom: VMnet0**, bridged to your home LAN. Adapters 2–5 use **Custom: VMnet10, VMnet11, VMnet12 and VMnet13**, respectively. The four storage networks are local host-only Ethernet switches implemented by Workstation.
 
-![VMware Workstation lab: VMnet0 management and four independent host-only iSCSI VMnets](images/truenas-rhel-four-path-lab.jpg)
+<img width="2600" height="1900" alt="truenas-rhel-four-path-lab" src="https://github.com/user-attachments/assets/520e3c5c-1450-4b0c-8f0e-2bd6e08e9e36" />
+
 
 ```mermaid
 flowchart TB
