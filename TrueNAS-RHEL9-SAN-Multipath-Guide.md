@@ -297,7 +297,8 @@ The TrueNAS software-status page listed 25.10.7 for General use when checked for
 
 **Location: VMware Workstation host GUI.** Complete these steps with the lab VMs powered off, not suspended. Workstation's **Custom: Specific virtual network** option attaches a VM NIC to the exact VMnet you select [S12].
 
-![VMware Workstation Virtual Network Editor and five-adapter settings reference](images/vmware-workstation-vmnet-settings.jpg)
+<img width="2400" height="1650" alt="vmware-workstation-vmnet-settings" src="https://github.com/user-attachments/assets/49abb02d-ab30-46fe-8990-989f4a38687d" />
+
 
 ### 5.1 Record existing settings
 
