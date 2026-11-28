@@ -90,52 +90,114 @@ Password for admin@KUBINFRA.COM:
 ```
 
 
-### 2.1 Verify the attachments you already have
+### 2 List all thin pools on server1
 
-**On Proxmox host `server1`**, confirm the VM mapping and inspect their command lines. The two backing paths must agree across all three VMs.
+An LVM thin pool is a storage area that supplies space to multiple virtual disks. LVM allocates blocks from the pool as each disk writes to new areas. man7.org
 
-```bash
-pveversion
-qm list
-qm showcmd 125 --pretty | grep -E 'ha-sbd|ha-apache|RHELHA-|share-rw'
-qm showcmd 126 --pretty | grep -E 'ha-sbd|ha-apache|RHELHA-|share-rw'
-qm showcmd 127 --pretty | grep -E 'ha-sbd|ha-apache|RHELHA-|share-rw'
-```
+In your setup, the ssd2tb volume group contains the ssd2tb thin pool, which has just under 1.79 TiB of capacity.
+List all thin pools on server1, use the below command:-
 
-For LVM-thin backing, the shared devices are `/dev/ssd2tb/rhelha-sbd` and `/dev/ssd2tb/rhelha-apache`. If you followed the earlier raw-file method, look for the same two file paths on `/mnt/backups` in all three commands. The host path confirms that the VMs share each disk. Verify `share-rw=on` on each attachment and use the serial and size to identify each device in RHEL.
-
-**On all RHEL nodes**, inspect the disks without modifying them.
 
 ```bash
-udevadm settle
-lsblk -d -o NAME,SIZE,RO,TYPE,SERIAL,FSTYPE
-ls -l /dev/disk/by-id/virtio-RHELHA-SBD /dev/disk/by-id/virtio-RHELHA-APACHE
-blockdev --getsize64 /dev/disk/by-id/virtio-RHELHA-SBD
-blockdev --getsize64 /dev/disk/by-id/virtio-RHELHA-APACHE
+root@server1:~# lvs --select 'segtype=thin-pool' \
+  -o vg_name,lv_name,segtype,lv_size,data_percent,metadata_percent
+  VG     LV     Type      LSize    Data%  Meta% 
+  pve    data   thin-pool   <1.67t 14.85  0.68  
+  ssd1tb ssd1tb thin-pool <934.67g 29.57  1.20  
+  ssd2tb ssd2tb thin-pool   <1.79t 6.16   0.38  
 ```
 
-| Guest path used throughout this runbook | Expected size | Purpose |
-| --- | --- | --- |
-| `/dev/disk/by-id/virtio-RHELHA-SBD` | `67108864` bytes (64 MiB) | Dedicated raw SBD device with writable access from all three nodes |
-| `/dev/disk/by-id/virtio-RHELHA-APACHE` | `21474836480` bytes (20 GiB) | Shared Apache data device, writable by the active volume owner |
-
-This example adds the expected serials to the disk sizes observed on `mn2p`.
-
-```text
-NAME  SIZE RO TYPE SERIAL
-sda    50G  0 disk
-sr0  14.5G  0 rom
-vda    64M  0 disk RHELHA-SBD
-vdb    20G  0 disk RHELHA-APACHE
+## List the virtual volumes inside ssd2tb/ssd2tb
+```bash
+root@server1:~# lvs -o vg_name,lv_name,segtype,pool_lv,lv_size ssd2tb
+  VG     LV            Type      Pool   LSize  
+  ssd2tb backups       thin      ssd2tb 500.00g
+  ssd2tb rhelha-apache thin      ssd2tb  20.00g
+  ssd2tb rhelha-sbd    thin      ssd2tb  64.00m
+  ssd2tb ssd2tb        thin-pool         <1.79t
+  ssd2tb vm-118-disk-0 thin      ssd2tb  50.00g
+  ssd2tb vm-119-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-120-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-121-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-122-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-123-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-124-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-125-disk-0 thin      ssd2tb  60.00g
+  ssd2tb vm-126-disk-0 thin      ssd2tb  50.00g
+  ssd2tb vm-127-disk-0 thin      ssd2tb  50.00g
+  ssd2tb vm-128-disk-0 thin      ssd2tb  50.00g
+  ssd2tb vm-129-disk-0 thin      ssd2tb 200.00g
+  ssd2tb vm-130-disk-0 thin      ssd2tb  32.00g
+  ssd2tb vm-130-disk-1 thin      ssd2tb  50.00g
+  ssd2tb vm-130-disk-2 thin      ssd2tb  50.00g
 ```
 
-`RO=0` means the disk is writable. The RHEL kernel can assign a different `vd*` name on another guest or after a hardware change. Use the `/dev/disk/by-id/` paths. Resolve any mismatch at the Proxmox attachment before initializing disks. Keep the guest OS disk and installation media out of all cluster storage commands.
 
-### 2.2 Fresh build only — create two logical volumes on `server1`
+For LVM-thin backing, the shared devices are `/dev/ssd2tb/rhelha-sbd` and `/dev/ssd2tb/rhelha-apache`. 
 
-This records the setup for an empty deployment. For the attachments you already have, use the verification above.
-
+## Create the two disks once
+ /dev/sdb itself already holds your VM disks and backups. Use the two new LV paths for the VM attachments. Red Hat Documentation
+Create the two LVs if those names are free. The pool and volume group both happen to be called `ssd2tb`, which is why that name appears twice on each line.
 In the supplied host layout, `/dev/sdb` is the physical device for volume group `ssd2tb`. That volume group already contains the `ssd2tb` thin pool and the `ssd2tb/backups` logical volume mounted at `/mnt/backups`. The thin pool and the two new logical volumes live on the Proxmox host. Inside RHEL, the SBD disk is a raw VirtIO device and only the Apache disk is added to a guest LVM volume group.
+
+Create the two LVs if those names are free. The pool and volume group both happen to be called `ssd2tb`, which is why that name appears twice on each line.
+
+
+```bash
+lvcreate --type thin --virtualsize 64M --name rhelha-sbd --thinpool ssd2tb ssd2tb
+lvcreate --type thin --virtualsize 20G --name rhelha-apache --thinpool ssd2tb ssd2tb
+
+root@server1:~# lvs -o lv_name,lv_size,pool_lv,lv_attr ssd2tb/rhelha-sbd ssd2tb/rhelha-apache
+  LV            LSize  Pool   Attr      
+  rhelha-apache 20.00g ssd2tb Vwi-aotz--
+  rhelha-sbd    64.00m ssd2tb Vwi-aotz-
+
+root@server1:~# ls -l /dev/ssd2tb/rhelha-sbd /dev/ssd2tb/rhelha-apache
+lrwxrwxrwx 1 root root 8 Nov 28 10:46 /dev/ssd2tb/rhelha-apache -> ../dm-14
+lrwxrwxrwx 1 root root 8 Nov 28 10:46 /dev/ssd2tb/rhelha-sbd -> ../dm-13
+
+```
+##  Attach the same disks to all three VMs
+With the VMs shut down, run this for VM 126, then repeat for 127 and 128, changing only the VM ID. 
+```bash
+qm set 126 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-sbd,share-rw=on,serial=RHELHA-SBD \
+  -drive if=none,id=ha-apache,file=/dev/ssd2tb/rhelha-apache,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-apache,share-rw=on,serial=RHELHA-APACHE"
+
+qm set 127 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-sbd,share-rw=on,serial=RHELHA-SBD \
+  -drive if=none,id=ha-apache,file=/dev/ssd2tb/rhelha-apache,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-apache,share-rw=on,serial=RHELHA-APACHE"
+
+  qm set 128 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-sbd,share-rw=on,serial=RHELHA-SBD \
+  -drive if=none,id=ha-apache,file=/dev/ssd2tb/rhelha-apache,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-apache,share-rw=on,serial=RHELHA-APACHE"
+
+```
+
+**On all 3 RHEL nodes mn1p,mn2p and mn3p **, inspect the disks without modifying them.
+
+```bash
+root@mn1p ~]# udevadm settle
+root@mn1p ~]# lsblk -d -o NAME,SIZE,RO,TYPE,SERIAL,FSTYPE
+NAME  SIZE RO TYPE SERIAL        FSTYPE
+sda    50G  0 disk drive-scsi0
+sr0  14.5G  0 rom  QM00003       iso9660
+vda    64M  0 disk RHELHA-SBD
+vdb    20G  0 disk RHELHA-APACHE LVM2_member
+[root@mn1p ~]# ls -l /dev/disk/by-id/virtio-RHELHA-SBD /dev/disk/by-id/virtio-RHELHA-APACHE
+lrwxrwxrwx. 1 root root 9 Nov 28 11:19 /dev/disk/by-id/virtio-RHELHA-APACHE -> ../../vdb
+lrwxrwxrwx. 1 root root 9 Nov 28 17:33 /dev/disk/by-id/virtio-RHELHA-SBD -> ../../vda
+[root@mn1p ~]# blockdev --getsize64 /dev/disk/by-id/virtio-RHELHA-SBD
+67108864
+[root@mn1p ~]# blockdev --getsize64 /dev/disk/by-id/virtio-RHELHA-APACHE
+21474836480
+```
+
+
+## On proxmox console verify the below:-
 
 ```bash
 lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
@@ -146,43 +208,37 @@ df -hT /var/lib/vz /mnt/backups
 findmnt -M /mnt/backups -o TARGET,SOURCE,FSTYPE
 ```
 
-| Reading from `server1` | Interpretation |
-| --- | --- |
-| About **23 GiB** free under `/var/lib/vz` | That directory uses `/`. A fully allocated 20 GiB image would consume most of the remaining root space. |
-| About **457 GiB** free under `/mnt/backups` | Filesystem space inside `ssd2tb/backups`, on the 2 TB SSD. |
-| About **376 MiB** `VFree` for `ssd2tb` | Unassigned extents outside the thin pool. This limits expansion of the existing pool from the volume group. |
-| Thin pool **`Data%`** and **`Meta%`** | Current use of the physical thin pool data and metadata. Check these values live, including when backups or other VMs grow. |
-
-Confirm `segtype` is `thin-pool` and that physical data and metadata have room for both new disks and expected growth from all users of the pool. Thin volumes allocate backing blocks as they are used. A successful allocation of a virtual size by itself does not establish physical capacity. Exhausting the pool can affect unrelated VMs and the backup filesystem.
-
-Create the two LVs if those names are free. The pool and volume group both happen to be called `ssd2tb`, which is why that name appears twice on each line.
-
-```bash
-lvcreate --type thin --virtualsize 64M --name rhelha-sbd --thinpool ssd2tb ssd2tb
-lvcreate --type thin --virtualsize 20G --name rhelha-apache --thinpool ssd2tb ssd2tb
-lvs -o lv_name,lv_size,pool_lv,lv_attr ssd2tb/rhelha-sbd ssd2tb/rhelha-apache
-ls -l /dev/ssd2tb/rhelha-sbd /dev/ssd2tb/rhelha-apache
-```
-
-Use only the two dedicated LV paths for attachments. `/dev/sdb` itself contains existing Proxmox storage, and `ssd2tb/backups` contains the host's backup filesystem. For this direct block-device method, the host does not format or mount either new LV.
 
 ### 2.3 Fresh build only — attach each LV to all three VMs
 
 **On the Proxmox host**, shut down the guests cleanly and confirm each shows `stopped` in `qm list`. Review the saved VM configurations before editing.
 
 ```bash
-qm config 125
 qm config 126
 qm config 127
+qm config 128
 ```
 
 `qm set --args` replaces the complete custom argument string. If an `args:` entry exists, preserve unrelated arguments and review whether these disk entries are already present. With an empty entry, run this command on `server1` for `125`, then run it for `126` and `127` with only the VM ID changed.
 
+##  Attach the same disks to all three VMs
+With the VMs shut down, run this for VM 126, then repeat for 127 and 128, changing only the VM ID. 
 ```bash
-qm set 125 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
+qm set 126 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
   -device virtio-blk-pci,drive=ha-sbd,share-rw=on,serial=RHELHA-SBD \
   -drive if=none,id=ha-apache,file=/dev/ssd2tb/rhelha-apache,format=raw,cache=none \
   -device virtio-blk-pci,drive=ha-apache,share-rw=on,serial=RHELHA-APACHE"
+
+qm set 127 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-sbd,share-rw=on,serial=RHELHA-SBD \
+  -drive if=none,id=ha-apache,file=/dev/ssd2tb/rhelha-apache,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-apache,share-rw=on,serial=RHELHA-APACHE"
+
+  qm set 128 --args="-drive if=none,id=ha-sbd,file=/dev/ssd2tb/rhelha-sbd,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-sbd,share-rw=on,serial=RHELHA-SBD \
+  -drive if=none,id=ha-apache,file=/dev/ssd2tb/rhelha-apache,format=raw,cache=none \
+  -device virtio-blk-pci,drive=ha-apache,share-rw=on,serial=RHELHA-APACHE"
+
 ```
 
 QEMU's `share-rw=on` allows concurrent opens of the same raw disk. The guest cluster is responsible for disk ownership. These are custom disk attachments. Treat their contents as separately managed for backup and recovery, and keep all three guests on `server1` while they use these host-local paths. Start the VMs and repeat [section 2.1](#21-verify-the-attachments-you-already-have).
@@ -196,11 +252,11 @@ Give each VM a supported, consistently patched RHEL 9.8 x86_64 installation, its
 Set each hostname on its matching node.
 
 ```bash
-# VM 125
-hostnamectl set-hostname mn1p.kubinfra.com
 # VM 126
-hostnamectl set-hostname mn2p.kubinfra.com
+hostnamectl set-hostname mn1p.kubinfra.com
 # VM 127
+hostnamectl set-hostname mn2p.kubinfra.com
+# VM 128
 hostnamectl set-hostname mn3p.kubinfra.com
 ```
 
