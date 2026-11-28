@@ -77,7 +77,18 @@ flowchart TB
 
 In the commands below, run **Proxmox host** steps in `server1`'s root shell. Run **all nodes** steps as root separately in each RHEL guest. Run **`mn1p` only** steps once on that node. Follow the order and read each verification before proceeding. For a running cluster or a disk with existing data, first inventory the resources and plan the change.
 
-## 2. Shared disks on the Proxmox SSD
+## 2. Add DNS redcord in the ipa server for http url  http://web-ha.kubinfra.com
+
+login to ipa server 
+
+
+```bash
+[root@ipa ~]# kinit admin
+Password for admin@KUBINFRA.COM:
+[root@ipa ~]# ipa dnsrecord-add kubinfra.com web-ha --a-rec=192.168.0.99
+
+```
+
 
 ### 2.1 Verify the attachments you already have
 
