@@ -322,9 +322,12 @@ SBD uses a watchdog inside each guest. A stuck guest stops servicing the timer, 
 **On the Proxmox host**, check each `qm config` for an existing watchdog. With the VMs cleanly stopped, add this device to each VM unless it already has the correct watchdog. If a custom QEMU argument supplies a watchdog, resolve that duplication before adding a second one. Start the VMs again. A full stop and start applies the hardware configuration.
 
 ```bash
-qm set 125 --watchdog model=i6300esb,action=reset
 qm set 126 --watchdog model=i6300esb,action=reset
 qm set 127 --watchdog model=i6300esb,action=reset
+qm set 128 --watchdog model=i6300esb,action=reset
+qm reboot 126
+qm reboot 127
+qm reboot 128
 ```
 
 **On all three RHEL nodes**, verify the driver and watchdog device. Use `modprobe i6300esb` if the device has not appeared. Recheck after a guest reboot. If the kernel lacks the module, install the matching RHEL kernel modules package from your approved repositories.
@@ -338,16 +341,6 @@ pcs stonith sbd watchdog list
 ```
 
 The examples use `/dev/watchdog0`. Confirm its identity is the Intel ESB watchdog on each VM. A `RuntimeWatchdogUSec` value of `0` means systemd's runtime watchdog is disabled. Resolve any competing use of the device before testing, because SBD needs exclusive control of its watchdog.
-
-**One empty lab VM at a time, before enabling SBD**, open the Proxmox console and run this test. The command deliberately resets the guest. Record the boot ID first and compare it again from the console after the guest returns.
-
-```bash
-cat /proc/sys/kernel/random/boot_id
-pcs stonith sbd watchdog test --help
-pcs stonith sbd watchdog test /dev/watchdog0
-```
-
-Complete this test on each VM before proceeding. If a VM fails to reset, check the guest driver, the selected device and `action=reset` on Proxmox.
 
 ### 4.2 Form the three-node cluster
 
