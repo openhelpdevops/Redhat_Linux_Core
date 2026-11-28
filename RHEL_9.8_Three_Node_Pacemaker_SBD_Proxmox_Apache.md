@@ -465,12 +465,146 @@ chmod 0755 /srv/apache-ha
 cat > /srv/apache-ha/index.html <<'HTML'
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<title>Kubinfra Apache HA</title>
-<h1>Kubinfra Apache HA</h1>
-<p>This page is on the shared XFS filesystem.</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apache HA | kubinfra.com</title>
+  <style>
+    * { box-sizing: border-box; }
+    h1, h2, p { margin: 0; }
+
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      min-height: 100svh;
+      margin: 0;
+      padding: 1.25rem;
+      color: #f0f6ff;
+      background:
+        radial-gradient(ellipse at 12% 0%, #1c3e66, transparent 58%),
+        radial-gradient(ellipse at 100% 100%, #0d3939, transparent 52%),
+        #08101c;
+      font: 1rem/1.55 system-ui, sans-serif;
+    }
+
+    main {
+      width: min(100%, 42rem);
+      padding: clamp(1.5rem, 6vw, 3.75rem);
+      border: 1px solid #2f455e;
+      border-top: 3px solid #59d5be;
+      border-radius: 1.5rem;
+      background: #111e31;
+      box-shadow: 0 1.5rem 5rem #0007;
+    }
+
+    .domain {
+      color: #86ddfa;
+      font-size: .875rem;
+      font-weight: 750;
+      letter-spacing: .14em;
+    }
+
+    h1 {
+      margin-top: .5rem;
+      font-size: clamp(2.35rem, 7vw, 4.25rem);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+      text-wrap: balance;
+    }
+
+    .intro { margin-top: 1rem; color: #bdcde0; }
+
+    .node-banner {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: .9rem;
+      margin: 2rem 0 1.25rem;
+      padding: 1rem 1.2rem;
+      border: 1px solid #35536b;
+      border-radius: .9rem;
+      background: #102635;
+    }
+
+    .node-dot {
+      width: .65rem;
+      height: .65rem;
+      border-radius: 50%;
+      background: #91aec4;
+    }
+
+    .node-banner[data-status="ready"] .node-dot {
+      background: #61e5b0;
+      box-shadow: 0 0 0 .3rem #61e5b024;
+    }
+
+    .node-banner h2 {
+      color: #acd6df;
+      font-size: .79rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    #active-node {
+      margin-top: .2rem;
+      color: #e2fff6;
+      font: 650 clamp(1rem, 4vw, 1.4rem)/1.4 ui-monospace, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    a { color: #9ce1fb; text-underline-offset: .2em; }
+    a:focus-visible { outline: 2px solid currentColor; outline-offset: .25rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="domain">kubinfra.com</p>
+      <h1>Apache HA Server</h1>
+      <p class="intro">High-availability web service on shared XFS storage.</p>
+    </header>
+
+    <section id="node-banner" class="node-banner" aria-labelledby="node-title">
+      <span class="node-dot" aria-hidden="true"></span>
+      <div>
+        <h2 id="node-title">Serving from</h2>
+        <p id="active-node" role="status">Enable JavaScript to display the hostname.</p>
+      </div>
+    </section>
+
+    <a href="/healthz.txt">View health check</a>
+  </main>
+
+  <script>
+    window.addEventListener("pageshow", async () => {
+      const banner = document.getElementById("node-banner");
+      const label = document.getElementById("active-node");
+      banner.removeAttribute("data-status");
+      label.textContent = "Looking up hostname…";
+
+      try {
+        const response = await fetch("/healthz.txt", { method: "HEAD", cache: "no-store" });
+        if (!response.ok) {
+          label.textContent = `Health check returned HTTP ${response.status}`;
+          return;
+        }
+
+        const hostname = response.headers.get("X-HA-Node")?.trim();
+        label.textContent = hostname || "X-HA-Node header missing";
+        if (hostname) {
+          banner.dataset.status = "ready";
+        }
+      } catch {
+        label.textContent = "Could not reach the health endpoint";
+      }
+    });
+  </script>
+</body>
 </html>
 HTML
+
+
 printf '%s\n' 'apache-ha-shared-ok' > /srv/apache-ha/healthz.txt
 chmod 0644 /srv/apache-ha/index.html /srv/apache-ha/healthz.txt
 restorecon -Rv /srv/apache-ha
