@@ -560,19 +560,23 @@ Run the following commands against the working file. Stop and correct any comman
 ```bash
 pcs -f /root/apache-ha-build.xml resource create apache-vg ocf:heartbeat:LVM-activate \
   vgname=vg_apache vg_access_mode=system_id \
-  op monitor interval=30s timeout=90s --group apache-group
+  op monitor interval=30s timeout=90s \
+  group apache-group --future
 
 pcs -f /root/apache-ha-build.xml resource create apache-fs ocf:heartbeat:Filesystem \
   device=/dev/vg_apache/lv_web directory=/srv/apache-ha fstype=xfs \
-  op monitor interval=20s timeout=40s --group apache-group
+  op monitor interval=20s timeout=40s \
+  group apache-group --future
 
 pcs -f /root/apache-ha-build.xml resource create apache-vip ocf:heartbeat:IPaddr2 \
   ip=192.168.0.99 cidr_netmask=24 \
-  op monitor interval=10s timeout=20s --group apache-group
+  op monitor interval=10s timeout=20s \
+  group apache-group --future
 
 pcs -f /root/apache-ha-build.xml resource create apache-web ocf:heartbeat:apache \
   configfile=/etc/httpd/conf/httpd.conf statusurl=http://127.0.0.1/server-status \
-  op monitor interval=15s timeout=20s --group apache-group
+  op monitor interval=15s timeout=20s \
+  group apache-group --future
 
 pcs -f /root/apache-ha-build.xml resource config
 ```
